@@ -12,6 +12,9 @@ from keras.models import Sequential
 from bs4 import BeautifulSoup as bs
 from keras.layers import Dense, Activation, LSTM, Dropout
 
+
+# BASE : https://github.com/fchollet/keras/blob/master/examples/lstm_text_generation.py
+# SOURCE : https://github.com/vlraik/word-level-rnn-keras/blob/master/wordlevelrnn/__init__.py
 # DOCU : http://karpathy.github.io/2015/05/21/rnn-effectiveness/
 
 ''' PARAMETERS '''
@@ -20,11 +23,13 @@ param = {
 	'wiki_article_number': 10,		# Number of articles to create dataset
 	'window_size' : 3,				# Split text into bag of x words
 	'sliding' : 1,					# Slide every x words
-	'iteration' : 1,				# Number of iterations
-	'epochs' : 100,					# Number of go-through input dataset
+	'iteration' : 2,				# Number of iterations
+	'text_size' : 300,				# Size of the generated text
 	'batch_size' : 128,				# Number of BOW parsed at a time
-	'text_size' : 300				# Size of the generated text
+	'epochs' : 100,					# How many epochs
+	'learning_rate' : 0.01			# Learning rate for optimization
 }
+
 
 ''' GENERAL NEEDS '''
 timeStart = time.time()
@@ -111,11 +116,11 @@ model.add(Dense(len(words)))
 model.add(Activation('softmax'))
 # Optimizers. Doc : https://keras.io/optimizers/
 '''
-RMSProp = optimizers.RMSprop(lr=0.01)
-adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-sgd = optimizers.SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False)
+RMSProp = optimizers.RMSprop(lr=param['learning_rate'])
+adam = optimizers.Adam(lr=param['learning_rate'], beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+sgd = optimizers.SGD(lr=param['learning_rate'], momentum=0.0, decay=0.0, nesterov=False)
 '''
-adam = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = optimizers.Adam(lr=param['learning_rate'], beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 model.compile(loss='categorical_crossentropy', optimizer=adam)
 # Timestamp
 print('Dataset extracted and model compiled in {} sec.'.format(round(time.time()-timeStart, 2)))
@@ -124,7 +129,11 @@ print('Dataset extracted and model compiled in {} sec.'.format(round(time.time()
 #if os.path.isfile('GoTweights'):
 #    model.load_weights('GoTweights')
 
-''' TEMPERATURE FUNCTION '''
+'''
+Temperature. We can also play with the temperature of the Softmax during sampling. Decreasing the temperature from 1 to some lower number (e.g. 0.5) makes the RNN more confident, but also more conservative in its samples. Conversely, higher temperatures will give more diversity but at cost of more mistakes (e.g. spelling mistakes, etc). In particular, setting temperature very near zero will give the most likely thing that Paul Graham might say:
+“is that they were all the same thing that was a startup is that they were all the same thing that was a startup is that they were all the same thing that was a startup is that they were all the same”
+looks like we’ve reached an infinite loop about startups.
+'''
 def sample(preds, temperature=1.0):
 	# helper function to sample an index from a probability array
 	preds = np.asarray(preds).astype('float64')
@@ -175,3 +184,4 @@ for iteration in range(1, param['iteration']):
 # Checkpointing
 #model.save_weights('weights') 
 print('Text generated in {} sec.'.format(round(time.time()-timeStart, 2)))
+
