@@ -129,7 +129,7 @@ print('Dataset extracted and model compiled in {} sec.'.format(round(time.time()
 #if os.path.isfile('GoTweights'):
 #    model.load_weights('GoTweights')
 
-# Temperature. If < 1, model get stuck in a loop
+# Temperature. If < 1, model get stuck in a loop of vocabulary
 def sample(preds, temperature=1.0):
 	# helper function to sample an index from a probability array
 	preds = np.asarray(preds).astype('float64')
