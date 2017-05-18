@@ -129,11 +129,7 @@ print('Dataset extracted and model compiled in {} sec.'.format(round(time.time()
 #if os.path.isfile('GoTweights'):
 #    model.load_weights('GoTweights')
 
-'''
-Temperature. We can also play with the temperature of the Softmax during sampling. Decreasing the temperature from 1 to some lower number (e.g. 0.5) makes the RNN more confident, but also more conservative in its samples. Conversely, higher temperatures will give more diversity but at cost of more mistakes (e.g. spelling mistakes, etc). In particular, setting temperature very near zero will give the most likely thing that Paul Graham might say:
-“is that they were all the same thing that was a startup is that they were all the same thing that was a startup is that they were all the same thing that was a startup is that they were all the same”
-looks like we’ve reached an infinite loop about startups.
-'''
+# Temperature. If < 1, model get stuck in a loop
 def sample(preds, temperature=1.0):
 	# helper function to sample an index from a probability array
 	preds = np.asarray(preds).astype('float64')
