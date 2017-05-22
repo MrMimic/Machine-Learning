@@ -161,7 +161,7 @@ for iteration in range(1, param['iteration']):
 		print('Generating with seed: "' , generated , '"')
 		print('- ' * 50)
 		# Generate output text
-		for i in range(300):
+		for i in range(param['text_size']):
 			x = np.zeros((1, maxlen, len(words)))
 			for t, word in enumerate(sentence):
 				x[0, t, word_indices[word]] = 1.
