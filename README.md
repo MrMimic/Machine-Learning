@@ -1,5 +1,5 @@
 ## text_fom_wiki_generation
 
-Train a NN model (Keras and Tensorflow) with articles from Wikipedia to generate text from this learning.
+Train a neural network (using Keras / Tensorflow) with articles from Wikipedia to write text from this learning.
 
 http://tadadata.fr/keras-wikipedia-ecrivain/
