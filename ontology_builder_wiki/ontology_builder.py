@@ -54,11 +54,14 @@ class Builder(object):
 		self.download_url = 'https://dumps.wikimedia.org/enwiki/latest/'
 		self.requiered_filenames = ['enwiki-latest-categorylinks.sql.gz', 'enwiki-latest-category.sql.gz', 'enwiki-latest-page.sql.gz']
 		# SQL CONNECTION
+		with open('./mysql.yaml', 'r') as mysql_config_file:
+			self.mysql_file = yaml.load(mysql_config_file)
+		print(self.mysql_file)
 		self.mysql_config = {
-			'host': 'localhost',
-			'user': 'root',
+			'host': str(self.mysql_file['mysql']['host']),
+			'user': str(self.mysql_file['mysql']['user']),
 			'database': 'wikipedia',
-			'password': '9326995',
+			'password': str(self.mysql_file['mysql']['password']),
 			'use_pure': True,
 			'raise_on_warnings': True,
 			'get_warnings': True,
