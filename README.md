@@ -1,5 +1,9 @@
-## text_fom_wiki_generation
+## text_generation_keras
 
 Train a neural network (using Keras / Tensorflow) with articles from Wikipedia to write text from this learning.
 
 http://tadadata.fr/keras-wikipedia-ecrivain/
+
+## ontology_builder_wiki
+
+Get a term, build a network of categories with and get related/relevant vocabulaty for every category.
