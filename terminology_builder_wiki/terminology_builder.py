@@ -12,7 +12,7 @@ import time
 import enchant  # english dict
 import requests
 import networkx as nx
-import mysql.connector  # sudo pip3 install mysql-connector-python
+import mysql.connector  # sudo pip3 install mysql-connector-python
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 from nltk.corpus import stopwords
@@ -24,7 +24,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 # INFORMATIONS
 __author__ = 'Emeric DYNOMANT'
-__copyright__ = 'Just cite, please'
+__copyright__ = 'CC'
 __version__ = '1.0'
 __maintainer__ = 'Emeric DYNOMANT'
 __email__ = 'emeric.dynomant@gmail.com'
@@ -32,20 +32,20 @@ __status__ = 'Alpha'
 
 
 # DOCUMENTATION
-# Wiki dumps DL page: 					https://dumps.wikimedia.org/enwiki/20171220/
-# SO feed to get some informations :	https://stackoverflow.com/questions/17432254/wikipedia-category-hierarchy-from-dumps
-# Relation explanations:				https://kodingnotes.wordpress.com/2014/12/03/parsing-wikipedia-page-hierarchy/
-# Wikipedia manuals:					https://www.mediawiki.org/wiki/Manual:Categorylinks_table
+# Wiki dumps DL page: 					https://dumps.wikimedia.org/enwiki/20171220/
+# SO feed to get some informations :	https://stackoverflow.com/questions/17432254/wikipedia-category-hierarchy-from-dumps
+# Relation explanations:				https://kodingnotes.wordpress.com/2014/12/03/parsing-wikipedia-page-hierarchy/
+# Wikipedia manuals:					https://www.mediawiki.org/wiki/Manual:Categorylinks_table
 
 
 class Builder(object):
 	"""Let's download every requiered data on Wikipedia and build an ontology from it."""
 
 	def __init__(self):
-
+		print()
 		with open('./configuration.yaml', 'r') as config_file:
 			self.configuration = yaml.load(config_file)
-		# NLP
+		# NLP
 		self.stopwords = set(stopwords.words('english') + ['false', 'true', 'ext', 'doi'])
 		self.tokenizer = RegexpTokenizer(r'\w+')
 		self.lemmatizer = WordNetLemmatizer()
@@ -56,7 +56,6 @@ class Builder(object):
 		# SQL CONNECTION
 		with open('./mysql.yaml', 'r') as mysql_config_file:
 			self.mysql_file = yaml.load(mysql_config_file)
-		print(self.mysql_file)
 		self.mysql_config = {
 			'host': str(self.mysql_file['mysql']['host']),
 			'user': str(self.mysql_file['mysql']['user']),
@@ -77,7 +76,7 @@ class Builder(object):
 				if data.status_code == 200:
 					with open('./wiki_dumps/raw/{}'.format(sql_file), 'wb') as data_file:
 						total_length = int(data.headers.get('content-length'))
-						# Just to see a progressbar, cause it's cool as hell
+						# Just to see a progressbar, cause it's cool as hell
 						for chunk in progress.bar(data.iter_content(chunk_size=1024), expected_size=(total_length/1024) + 1):
 							if chunk:
 								data_file.write(chunk)
@@ -107,7 +106,7 @@ class Builder(object):
 			except mysql.connector.errors.DatabaseError:
 				print('Database [wikipedia] already exists.')
 				pass
-			# Now, insertion
+			# Now, insertion
 			for sql_dump in os.listdir('./wiki_dumps/extracted/'):
 				print('Inserting {}'.format(sql_dump))
 				os.system('mysql -u {} -h {} -D wikipedia -p{} < ./wiki_dumps/extracted/{}'.format(self.mysql_config['user'], self.mysql_config['host'], self.mysql_config['password'], sql_dump))
@@ -158,23 +157,22 @@ class Builder(object):
 			G.add_edge(edge[0], edge[1])
 		# Base layout is "shell" for circos-like vizu
 		if graph_layout == 'spring':
-			graph_pos=nx.spring_layout(G)
+			graph_pos = nx.spring_layout(G)
 		elif graph_layout == 'spectral':
-			graph_pos=nx.spectral_layout(G)
+			graph_pos = nx.spectral_layout(G)
 		elif graph_layout == 'random':
-			graph_pos=nx.random_layout(G)
+			graph_pos = nx.random_layout(G)
 		else:
-			graph_pos=nx.shell_layout(G)
+			graph_pos = nx.shell_layout(G)
 		# Draw graph
-		nx.draw_networkx_nodes(G,graph_pos,node_size=node_size, alpha=node_alpha, node_color=node_color)
-		nx.draw_networkx_edges(G,graph_pos,width=edge_tickness, alpha=edge_alpha,edge_color=edge_color)
-		nx.draw_networkx_labels(G, graph_pos,font_size=node_text_size, font_family=text_font)
+		nx.draw_networkx_nodes(G, graph_pos, node_size=node_size, alpha=node_alpha, node_color=node_color)
+		nx.draw_networkx_edges(G, graph_pos, width=edge_tickness, alpha=edge_alpha, edge_color=edge_color)
+		nx.draw_networkx_labels(G, graph_pos, font_size=node_text_size, font_family=text_font)
 		# Add numbers for edge name if empty
 		if labels is None:
 			labels = range(len(graph))
 		edge_labels = dict(zip(graph, labels))
 		nx.draw_networkx_edge_labels(G, graph_pos, edge_labels=edge_labels, label_pos=edge_text_pos)
-		#~ plt.show()
 		plt.savefig('./wikipedia_ontology_{}.png'.format(title))
 
 	def build_step(self, relations, parent_name, connection, categories_linked):
@@ -192,10 +190,10 @@ class Builder(object):
 		sys.stdout.flush()
 		return relations, children_names, categories_linked
 
-	def build_ontology(self, top_term, number_of_categories):
+	def build_relations(self, top_term, number_of_categories):
 		"""Loop overt time to build the ontology thanks to every links created between nodes in the graph"""
 		connection = mysql.connector.connect(**self.mysql_config, buffered=True)
-		# Get data from the top node
+		# Get data from the top node
 		parent_name = top_term
 		relations = []
 		categories_linked = []
@@ -239,10 +237,11 @@ class Builder(object):
 				data = {'page_id': page_id}
 				cursor.execute(command, data)
 				page_title = [title[0] for title in cursor]
-				pages.append(page_title[0])
-				number_childrens += 1
+				if re.search('[Ww]ikipedia|[Cc]ateg|[Aa]cad', page_title[0]) is None:
+					pages.append(page_title[0])
+					number_childrens += 1
 			linked_pages[parent] = pages
-		print('\tTotal of {} pages linked.'.format(number_childrens))
+		print('\tTotal of {} pages linked.'.format(number_childrens))
 
 		return linked_pages
 
@@ -254,13 +253,15 @@ class Builder(object):
 		text = re.sub('\n', ' ', str(text))
 		return text
 
-	def get_vocabulary(self, linked_pages):
+	def get_vocabulary(self, linked_pages, categories_links):
 		"""Scrapp a wiki page to get vocabulary for each category"""
-		total_vocabulary = []
+		total_vocabulary = {}
 		unique_vocabulary = []
+		unique_vocabulary_tfidf = []
 		# For each category
 		for parent, pages in linked_pages.items():
 			children_pages = []
+			downloaded_pages = []
 			# For every pages linked to this wategory on Wiki
 			for page in pages:
 				sys.stdout.write('\t{} / {} pages downloaded for [{}] category.\r'.format(len(children_pages), len(pages), parent))
@@ -272,48 +273,78 @@ class Builder(object):
 				paragraphs = [str(paragraph) for paragraph in data_soup.find_all('p')]
 				paragraphs_joined = ' '.join(paragraphs)
 				# Clean, tokenize, stemm and rebuild the document
-				document = []
+				page_vocabulary = []
 				cleaned_data = self.clean_xml(text=paragraphs_joined.strip())
 				tokenized_data = self.tokenizer.tokenize(cleaned_data)
 				for token in tokenized_data:
 					if token.lower() not in self.stopwords:
 						word = self.lemmatizer.lemmatize(token.lower())
-						word_splitted = word.split(' ')
 						# Check if the word is correct
 						if self.english_dict.check(word) is True:
-							document.append(word)
+							page_vocabulary.append(word)
+							# Track total vocabulary
+							if word not in unique_vocabulary:
+								unique_vocabulary.append(word)
 							# Here, why not Levenstein for correction, but gonna be long
-				page_nlp_treated = ' '.join(document)
-				if len(children_pages) >= 20 or len(children_pages) == len(pages):
+				page_nlp_treated = ' '.join(page_vocabulary)
+				if len(children_pages) >= self.configuration['options']['pages_per_category'] or len(children_pages) == len(pages):
 					break
 				else:
 					children_pages.append(page_nlp_treated)
+					downloaded_pages.append(page)
 				# Wikipedia is cool, be cool with their servers.
 				time.sleep(self.configuration['options']['waiting_time'])
-			# TF_IDF for vocabulary and get top score
-			tf = TfidfVectorizer(analyzer='word', ngram_range=(1,5), min_df = 0, stop_words=self.stopwords)
-			tfidf_matrix =  tf.fit_transform(children_pages)
-			feature_names = tf.get_feature_names() 
+			# StdOut summary
+			print('\n\t\t- ' + '\n\t\t- '.join(downloaded_pages))
+			# TF_IDF for vocabulary of each category and get top score
+			tf = TfidfVectorizer(analyzer='word', ngram_range=(1,5), min_df=0, stop_words=self.stopwords)
+			tfidf_matrix = tf.fit_transform(children_pages)
+			feature_names = tf.get_feature_names()
 			dense = tfidf_matrix.todense()
 			episode = dense[0].tolist()[0]
 			phrase_scores = [pair for pair in zip(range(0, len(episode)), episode) if pair[1] > 0]
 			sorted_phrase_scores = sorted(phrase_scores, key=lambda t: t[1] * -1)
-			print('\t{} / {} pages downloaded for [{}] category.\r'.format(len(children_pages), len(pages), parent))
-			for phrase, score in [(feature_names[word_id], score) for (word_id, score) in sorted_phrase_scores][:self.configuration['options']['word_per_page']]:
-				print('{0: <20} {1}'.format(phrase, score))
+			category_words = []
+			for word, score in [(feature_names[word_id], score) for (word_id, score) in sorted_phrase_scores][:self.configuration['options']['word_per_page']]:
+				category_words.append({word: score})
+				if word not in unique_vocabulary_tfidf:
+					unique_vocabulary_tfidf.append(word)
+			# Get linked categories to category
+			linked_categories = []
+			for relation in relations:
+				if relation[0] == parent and relation[0] not in linked_categories:
+					linked_categories.append(relation[1])
+				if relation[1] == parent and relation[1] not in linked_categories:
+					linked_categories.append(relation[0])
+			# Get linked pages to category
+			for category, pages in linked_pages.items():
+				if category == parent:
+					linked_pages_to_category = pages
+			category_details = {}
+			category_details['terminology'] = category_words
+			category_details['linked_pages_to_category'] = linked_pages_to_category
+			category_details['linked_categories'] = linked_categories
+			total_vocabulary[parent] = category_details
+		# Statistics about our terminology
+		print('\nA total of {} words have been scanned to extract {} important words covering {} categories.'.format(len(unique_vocabulary), len(unique_vocabulary_tfidf), len(linked_pages)))
+		return total_vocabulary
+
+	def write_terminology(self, terminology, top_term):
+		"""Write a simple JSON file containing our terminology"""
+		with open('./{}_terminology.json'.format(top_term), 'w') as json_file:
+			json_file.write(json.dumps(terminology, sort_keys=True, indent=2, ensure_ascii=False))
+		print('Terminology has been written to file [./{}_terminology.json]'.format(top_term))
+		print()
 
 
 if __name__ == '__main__':
 
-	foobar = Builder()
-	foobar.download_data()
-	foobar.extract_data()
-	foobar.insert_data()
-	relations = foobar.build_ontology(top_term='Houses', number_of_categories=10)
-	linked_pages = foobar.get_linked_pages(relations=relations)
-	foobar.get_vocabulary(linked_pages=linked_pages)
-
-
-
-
-
+	ChuckNorris = Builder()
+	top_term = 'Biology'
+	ChuckNorris.download_data()
+	ChuckNorris.extract_data()
+	ChuckNorris.insert_data()
+	relations = ChuckNorris.build_relations(top_term=top_term, number_of_categories=5)
+	linked_pages = ChuckNorris.get_linked_pages(relations=relations)
+	terminology = ChuckNorris.get_vocabulary(linked_pages=linked_pages, categories_links=relations)
+	ChuckNorris.write_terminology(terminology=terminology, top_term=top_term)
