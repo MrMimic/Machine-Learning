@@ -14,6 +14,11 @@ options:
   word_per_page: 20
   waiting_time: 1
 # =================================== GRAPH =================================================
-plot_graph:
-  width: 100
-  height: 100
+graph:
+  width: 25
+  height: 25
+  dpi: 150
+  node_size: 2000
+  node_color: red
+  node_text_size: 20
+  edge_color: black

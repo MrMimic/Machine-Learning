@@ -121,8 +121,8 @@ class Builder(object):
 		cursor.close()
 		try:
 			category_id = ids_linked[0]
-		except IndexError:
-			print('\nYour initial request is not a Wikipedia category. Please use a synonym or try plural form.\n')
+		except (IndexError, ValueError):
+			print('\nYour initial request is not a Wikipedia category. Please use a more general term or try plural form.\n')
 			exit(0)
 		return category_id
 
@@ -145,32 +145,25 @@ class Builder(object):
 		linked_names = []
 		for name in cursor:
 			# Remove categories used by Wikipedia's admin
-			if re.search('[Ww]ikipedia|[Cc]ateg|[Aa]cad', name[0]) is None:
+			if re.search('[Ww]ikipedia|[Cc]ateg|[Aa]cad|[Aa]rticle|[Tt]opic', name[0]) is None:
 				linked_names.append(name[0])
 		return linked_names
 
-	def draw_graph(self, graph, title, labels=None, graph_layout='spring', node_size=1200, node_color='red', node_alpha=0.3, node_text_size=12, edge_color='black', edge_alpha=0.3, edge_tickness=1, edge_text_pos=0.3, text_font='sans-serif'):
-		"""Draw a noded graph. Spring is a good representation for ontology."""
+	def draw_graph(self, graph, title, node_alpha=0.3, edge_alpha=0.3, edge_tickness=1, edge_text_pos=0.3, text_font='sans-serif'):
+		"""Draw a noded graph."""
 		G = nx.Graph()
 		# Add edges
 		for edge in graph:
 			G.add_edge(edge[0], edge[1])
-		# Base layout is "shell" for circos-like vizu
-		if graph_layout == 'spring':
-			graph_pos = nx.spring_layout(G)
-		elif graph_layout == 'spectral':
-			graph_pos = nx.spectral_layout(G)
-		elif graph_layout == 'random':
-			graph_pos = nx.random_layout(G)
-		else:
-			graph_pos = nx.shell_layout(G)
+		# Base layout is SHELL, but SPRING is nicer for networks (possibles: SPECTRAL, SPRING, RANDOM, SHELL)
+		graph_pos = nx.spring_layout(G)
 		# Draw graph
-		nx.draw_networkx_nodes(G, graph_pos, node_size=node_size, alpha=node_alpha, node_color=node_color)
-		nx.draw_networkx_edges(G, graph_pos, width=edge_tickness, alpha=edge_alpha, edge_color=edge_color)
-		nx.draw_networkx_labels(G, graph_pos, font_size=node_text_size, font_family=text_font)
+		plt.figure(figsize=(self.configuration['graph']['width'], self.configuration['graph']['height']), dpi=self.configuration['graph']['dpi'])
+		nx.draw_networkx_nodes(G, graph_pos, node_size=self.configuration['graph']['node_size'], alpha=node_alpha, node_color=self.configuration['graph']['node_color'])
+		nx.draw_networkx_edges(G, graph_pos, width=edge_tickness, alpha=edge_alpha, edge_color=self.configuration['graph']['edge_color'])
+		nx.draw_networkx_labels(G, graph_pos, font_size=self.configuration['graph']['node_text_size'], font_family=text_font)
 		# Add numbers for edge name if empty
-		if labels is None:
-			labels = range(len(graph))
+		labels = range(len(graph))
 		edge_labels = dict(zip(graph, labels))
 		nx.draw_networkx_edge_labels(G, graph_pos, edge_labels=edge_labels, label_pos=edge_text_pos)
 		plt.savefig('./wikipedia_ontology_{}.png'.format(title))
@@ -340,7 +333,7 @@ class Builder(object):
 if __name__ == '__main__':
 
 	ChuckNorris = Builder()
-	top_term = 'Biology'
+	top_term = re.sub(' ', '_', input('Please enter a term: '))
 	ChuckNorris.download_data()
 	ChuckNorris.extract_data()
 	ChuckNorris.insert_data()
