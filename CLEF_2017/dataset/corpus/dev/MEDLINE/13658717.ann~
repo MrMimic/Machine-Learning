@@ -1,0 +1,10 @@
+T1	CHEM 12 36	 acide acétylsalicylique
+#1	AnnotatorNotes T1	C0004057
+T2	CHEM 12 18	 acide
+#2	AnnotatorNotes T2	C0001128
+T3	DISO 44 55	sensibilité
+#3	AnnotatorNotes T3	C0020517
+T4	DISO 59 68	goût amer
+#4	AnnotatorNotes T4	C0235290
+T5	LIVB 77 82	homme
+#5	AnnotatorNotes T5	C0086418

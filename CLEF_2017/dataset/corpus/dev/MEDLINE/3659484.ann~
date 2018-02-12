@@ -1,0 +1,14 @@
+T1	PROC 0 9	Résultats
+#1	AnnotatorNotes T1	C0849546
+T2	PROC 15 31	 expérimentation
+#2	AnnotatorNotes T2	C0681814
+T3	CHEM 37 49	 ivermectine
+#3	AnnotatorNotes T3	C0022322
+T4	CHEM 52 58	Ivomec
+#4	AnnotatorNotes T4	C0729041
+T5	LIVB 69 78	parasites
+#5	AnnotatorNotes T5	C0030498
+T6	LIVB 82 92	dromadaire
+#6	AnnotatorNotes T6	C0006801
+T7	GEOG 96 101	Niger
+#7	AnnotatorNotes T7	C0028074
