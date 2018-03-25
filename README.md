@@ -1,6 +1,6 @@
 ## text_generation_keras
 
-Train a neural network (using Keras / Tensorflow) with articles from Wikipedia to write text from this learning.
+Train a neural network (using Keras / Tensorflow) with articles from Wikipedia to write text from this training.
 
 http://tadadata.fr/keras-wikipedia-ecrivain/
 
