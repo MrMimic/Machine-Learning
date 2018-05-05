@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+# There's somewhere a bug with the new Keras API saying that some parameter are not required. Bullshit.
 
 import os
 import re
