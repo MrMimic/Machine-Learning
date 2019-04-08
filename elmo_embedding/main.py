@@ -10,17 +10,17 @@
 
 
 import re
+import sys
+import pickle
 import tensorflow as tf
 import tensorflow_hub as hub
 from keras.preprocessing.sequence import pad_sequences as PS
 
+
 """ OPTIONS """
 TRAINING_FILE = '0_tester.txt'
 CLUSTER_NODES = 20
-QUERY = 'le chat est sur le canapé' 
 
-# Get last model version
-elmo = hub.Module('https://tfhub.dev/google/elmo/2', trainable=True)
 
 # Create a padding function
 def open_file_and_pad_sequences(file_name):
@@ -40,28 +40,8 @@ def open_file_and_pad_sequences(file_name):
         joined = [' '.join(line) for line in padded]
         del lines, padded
         return joined, tokens, max_length 
-                               
-# Use that lazy function to create same length sentences
-sentences, original_tokens, max_length = open_file_and_pad_sequences(TRAINING_FILE)
 
-# Embed our documents
-embeddings = elmo(sentences, signature="default", as_dict=True)['elmo']
-
-# Initialize tensorflow
-init_op = tf.global_variables_initializer() 
-config = tf.ConfigProto(inter_op_parallelism_threads=CLUSTER_NODES, intra_op_parallelism_threads=CLUSTER_NODES)
-
-# Run the graph
-with tf.Session(config=config) as sess:
-        sess.run(init_op)
-        vectors = sess.run(embeddings)
-
-        # Thoses guys are our model, let's embed a query
-        tokens_query = re.findall('\w+', QUERY)
-        padded_query = PS(sequences=[tokens_query], dtype=object, maxlen=max_length, padding='post', value='<PAD>')[0]
-        embedded_query =  elmo(padded_query, signature="default", as_dict=True)['elmo']
-        vectorized_query = sess.run(embedded_query)[0]
-
+        
 # Define a cosine similarity function
 def cosine_sim(x1, x2, name='Cosine_loss'):
         with tf.name_scope(name):
@@ -74,14 +54,76 @@ def cosine_sim(x1, x2, name='Cosine_loss'):
                 #Compute
                 return tf.math.divide(num,denom)
 
-# Calculate cosine similarity for each vector
-with tf.Session() as sess:
-        print()
-        for vector, text in zip(vectors, original_tokens):
-                global_sim = cosine_sim(vector, vectorized_query)
-                print(' '.join(text))
-                sess.run(tf.print(global_sim))
-                sess.run(tf.print(1-tf.reduce_mean(global_sim)))
-                print()
-                
-                
+
+if '--train' in sys.argv:
+
+        # Get last model version
+        elmo = hub.Module('https://tfhub.dev/google/elmo/2', trainable=True)
+                       
+        # Use that lazy function to create same length sentences
+        sentences, original_tokens, max_length = open_file_and_pad_sequences(TRAINING_FILE)
+
+        # Embed our documents
+        embeddings = elmo(sentences, signature="default", as_dict=True)['elmo']
+
+        # Initialize tensorflow
+        init_op = tf.global_variables_initializer() 
+        config = tf.ConfigProto(inter_op_parallelism_threads=CLUSTER_NODES, intra_op_parallelism_threads=CLUSTER_NODES)
+
+        # Run the graph
+        with tf.Session(config=config) as sess:
+                sess.run(init_op)
+                vectors = sess.run(embeddings)
+
+        # Save vectors
+        with open('elmo_vectors.pickle', 'wb') as handler:
+                pickle.dump(vectors, handler, protocol=pickle.HIGHEST_PROTOCOL)
+        
+         
+if '--query' in sys.argv:
+        
+        # Check len of provided arguments
+        if len(sys.argv) > 3:
+                print('Please provided query with brackets (eg. python3 main.py --query "Hello john, how you doing?"')
+                exit(0)
+        else:
+                QUERY = sys.argv[2]
+
+        # Load trained vectors
+        with open('elmo_vectors.pickle', 'rb') as handler:
+                vectors = pickle.load(handler)
+
+        # Get len of a vector to pad the question
+        sentences, original_tokens, max_length = open_file_and_pad_sequences(TRAINING_FILE)
+        
+        # Get last model version
+        elmo = hub.Module('https://tfhub.dev/google/elmo/2', trainable=False)
+
+        # Vectorize query
+        tokens_query = re.findall('\w+', QUERY)
+        padded_query = PS(sequences=[tokens_query], dtype=object, maxlen=max_length, padding='post', value='<PAD>')[0]
+        embedded_query =  elmo(padded_query, signature="default", as_dict=True)['elmo']
+
+        # Start Tensorflow
+        init_op = tf.global_variables_initializer()
+        config = tf.ConfigProto(inter_op_parallelism_threads=CLUSTER_NODES, intra_op_parallelism_threads=CLUSTER_NODES)
+
+        # Run the graph        
+        with tf.Session(config=config) as sess:
+                sess.run(init_op)
+                vectorized_query = sess.run(embedded_query)[0]
+               
+                # Calculate cosines query VS all vectors            
+                cosines = list()
+                for vector, text in zip(vectors, original_tokens):
+                        global_sim = cosine_sim(vector, vectorized_query)
+                        cosines.append(sess.run(1-tf.reduce_mean(global_sim)))
+
+        # Now, sort lists, first elements are closer to the query
+        vectors = list(vectors)
+        sentences = [' '.join(tokens) for tokens in original_tokens]
+        sorted_results = sorted(zip(cosines, sentences, vectors), key=lambda x: x[0], reverse=True)
+        
+        # Printout results
+        for position, result in enumerate(sorted_results):
+                print('#{}\t{}\t{}'.format(position+1, result[0], result[1]))
