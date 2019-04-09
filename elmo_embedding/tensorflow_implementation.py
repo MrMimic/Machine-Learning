@@ -11,16 +11,18 @@
 
 import re
 import sys
+import time
 import pickle
 import tensorflow as tf
 import tensorflow_hub as hub
+import numpy as np
 from keras.preprocessing.sequence import pad_sequences as PS
 
 
 """ OPTIONS """
-TRAINING_FILE = '0_tester.txt'
-CLUSTER_NODES = 20
-
+TRAINING_FILE = '/appli/deeplearning/ELMO/1000_pubmed.txt'
+CLUSTER_NODES = 60
+MAX_RESULTS = 20
 
 # Create a padding function
 def open_file_and_pad_sequences(file_name):
@@ -35,6 +37,7 @@ def open_file_and_pad_sequences(file_name):
         tokens = [list(map(str, token)) for token in tokens]
         # Calculate max_length        
         max_length = max([len(line) for line in tokens])
+        print('Treating {} lines with max_length = {}'.format(len(lines), max_length))
         # Now use Keras padding utility cause of lazyness
         padded = PS(sequences=tokens,dtype=object, maxlen=max_length, padding='post', value='<PAD>')
         joined = [' '.join(line) for line in padded]
@@ -51,7 +54,7 @@ def cosine_sim(x1, x2, name='Cosine_loss'):
                 # Get numerator and denominator
                 denom =  tf.multiply(x1_val,x2_val)
                 num = tf.reduce_sum(tf.multiply(x1,x2),axis=1)
-                #Compute
+                # Compute
                 return tf.math.divide(num,denom)
 
 
@@ -61,19 +64,25 @@ if '--train' in sys.argv:
         elmo = hub.Module('https://tfhub.dev/google/elmo/2', trainable=True)
                        
         # Use that lazy function to create same length sentences
+        st = time.time()
         sentences, original_tokens, max_length = open_file_and_pad_sequences(TRAINING_FILE)
+        print('Sentences padded ({} sec).'.format(time.time() - st))
 
         # Embed our documents
+        st = time.time()
         embeddings = elmo(sentences, signature="default", as_dict=True)['elmo']
+        print('Embedding calculated ({} sec).'.format(time.time() - st))
 
         # Initialize tensorflow
         init_op = tf.global_variables_initializer() 
         config = tf.ConfigProto(inter_op_parallelism_threads=CLUSTER_NODES, intra_op_parallelism_threads=CLUSTER_NODES)
 
         # Run the graph
+        st = time.time()
         with tf.Session(config=config) as sess:
                 sess.run(init_op)
                 vectors = sess.run(embeddings)
+        print('Weights calculated ({} sec).'.format(time.time() - st))
 
         # Save vectors
         with open('elmo_vectors.pickle', 'wb') as handler:
@@ -109,15 +118,23 @@ if '--query' in sys.argv:
         config = tf.ConfigProto(inter_op_parallelism_threads=CLUSTER_NODES, intra_op_parallelism_threads=CLUSTER_NODES)
 
         # Run the graph        
+        T1 = time.time()
         with tf.Session(config=config) as sess:
                 sess.run(init_op)
                 vectorized_query = sess.run(embedded_query)[0]
+                print('GRAPH: {}'.format(time.time()-T1))
                
                 # Calculate cosines query VS all vectors            
                 cosines = list()
+                times = list()
                 for vector, text in zip(vectors, original_tokens):
+                        T1 = time.time()
                         global_sim = cosine_sim(vector, vectorized_query)
                         cosines.append(sess.run(1-tf.reduce_mean(global_sim)))
+                        times.append(time.time()-T1)
+                        print(time.time()-T1)
+                print('VECTORS: {}'.format(np.mean(times)))
+
 
         # Now, sort lists, first elements are closer to the query
         vectors = list(vectors)
@@ -126,4 +143,5 @@ if '--query' in sys.argv:
         
         # Printout results
         for position, result in enumerate(sorted_results):
-                print('#{}\t{}\t{}'.format(position+1, result[0], result[1]))
+                if position < MAX_RESULTS:
+                        print('#{}\t{}\t{}'.format(position+1, result[0], result[1]))
